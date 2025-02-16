@@ -1,0 +1,35 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Video and large media files (if not needed in the repo)
+traffic.mp4
+
+
+# Data folders (if any)
+data/
+
+# IDE and editor settings
+.vscode/
+.idea/
+
+traffic_detection/dnn_model/yolov4.weights

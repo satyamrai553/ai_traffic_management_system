@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Traffic Light Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; flex-direction: column; align-items: center; }
+        .dashboard { margin-bottom: 20px; }
+        .override { margin-bottom: 20px; }
+        #trafficLight {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #000;
+            margin: 10px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Traffic Light Control Dashboard</h1>
+        <div class="dashboard">
+            <p>Vehicle Count: <span id="vehicleCount">0</span></p>
+            <p>Green Light Duration: <span id="greenTime">0</span> seconds</p>
+            <p>Red Light Duration: <span id="redTime">0</span> seconds</p>
+        </div>
+        
+        <div>
+            <h3>Live Video Feed</h3>
+            <img id="liveFeed" src="" alt="Live feed will appear here" style="width:640px;">
+        </div>
+        <!-- Traffic Light Display -->
+        <div>
+            <h3>Traffic Light</h3>
+            <div id="trafficLight"></div>
+            <p>Current State: <span id="lightState">N/A</span></p>
+        </div>
+        <!-- Real-time Chart -->
+        <div>
+            <h3>Real-Time Traffic Data</h3>
+            <canvas id="trafficChart" width="600" height="300"></canvas>
+        </div>
+        <!-- Manual Override Controls -->
+        <div class="override">
+            <h3>Manual Override</h3>
+            <label for="manualGreenTime">Green Time (seconds):</label>
+            <input type="number" id="manualGreenTime" value="0" min="0" max="90">
+            <button onclick="applyManualOverride()">Apply</button>
+        </div>
+    </div>
+    <script>
+        const socket = io();
+        let trafficData = {
+            labels: [],
+            vehicleCounts: [],
+            greenTimes: [],
+            redTimes: []
+        };
+
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trafficData.labels,
+                datasets: [{
+                    label: 'Vehicle Count',
+                    data: trafficData.vehicleCounts,
+                    borderColor: 'blue',
+                    fill: false,
+                },
+                {
+                    label: 'Green Time (s)',
+                    data: trafficData.greenTimes,
+                    borderColor: 'green',
+                    fill: false,
+                },
+                {
+                    label: 'Red Time (s)',
+                    data: trafficData.redTimes,
+                    borderColor: 'red',
+                    fill: false,
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Time' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Value' } }
+                }
+            }
+        });
+
+        socket.on('trafficUpdate', (data) => {
+            document.getElementById('vehicleCount').innerText = data.vehicleCount;
+            document.getElementById('greenTime').innerText = data.greenTime;
+            document.getElementById('redTime').innerText = data.redTime;
+            
+            if (data.frameImage) {
+                document.getElementById('liveFeed').src = "data:image/jpeg;base64," + data.frameImage;
+            }
+
+            const currentTime = new Date().toLocaleTimeString();
+            trafficData.labels.push(currentTime);
+            trafficData.vehicleCounts.push(data.vehicleCount !== 'Override' ? data.vehicleCount : 0);
+            trafficData.greenTimes.push(data.greenTime);
+            trafficData.redTimes.push(data.redTime);
+
+            if (trafficData.labels.length > 20) {
+                trafficData.labels.shift();
+                trafficData.vehicleCounts.shift();
+                trafficData.greenTimes.shift();
+                trafficData.redTimes.shift();
+            }
+            trafficChart.update();
+        });
+
+        socket.on('lightUpdate', (data) => {
+            console.log("Light Update Received:", data);
+            const lightDiv = document.getElementById('trafficLight');
+            const stateSpan = document.getElementById('lightState');
+            stateSpan.innerText = data.state.charAt(0).toUpperCase() + data.state.slice(1);
+            if (data.state === 'green') {
+                lightDiv.style.backgroundColor = 'green';
+            } else if (data.state === 'yellow') {
+                lightDiv.style.backgroundColor = 'yellow';
+            } else if (data.state === 'red') {
+                lightDiv.style.backgroundColor = 'red';
+            }
+        });
+
+        function applyManualOverride() {
+            const manualGreen = document.getElementById('manualGreenTime').value;
+            if (confirm("Are you sure you want to apply a manual override of " + manualGreen + " seconds green?")) {
+                socket.emit('manualOverride', { manualGreenTime: manualGreen });
+            }
+        }
+    </script>
+</body>
+</html>
