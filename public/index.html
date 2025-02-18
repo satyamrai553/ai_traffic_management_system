@@ -92,42 +92,63 @@
         });
 
         socket.on('trafficUpdate', (data) => {
-            document.getElementById('vehicleCount').innerText = data.vehicleCount;
-            document.getElementById('greenTime').innerText = data.greenTime;
-            document.getElementById('redTime').innerText = data.redTime;
-            
-            if (data.frameImage) {
-                document.getElementById('liveFeed').src = "data:image/jpeg;base64," + data.frameImage;
-            }
+    // Update dashboard text
+    document.getElementById('vehicleCount').innerText = data.vehicleCount;
+    document.getElementById('greenTime').innerText = data.greenTime;
+    document.getElementById('redTime').innerText = data.redTime;
+    
+    // Update live video feed if available
+    if (data.frameImage) {
+        document.getElementById('liveFeed').src = "data:image/jpeg;base64," + data.frameImage;
+    }
+    
+    // Get current time
+    const currentTime = new Date().toLocaleTimeString();
+    trafficData.labels.push(currentTime);
+    
+    // Convert vehicleCount to number, handling non-numeric values gracefully
+    let vehicleCountNum = parseInt(data.vehicleCount, 10);
+    if (isNaN(vehicleCountNum)) {
+        vehicleCountNum = 0;
+    }
+    trafficData.vehicleCounts.push(vehicleCountNum);
+    trafficData.greenTimes.push(data.greenTime);
+    trafficData.redTimes.push(data.redTime);
 
-            const currentTime = new Date().toLocaleTimeString();
-            trafficData.labels.push(currentTime);
-            trafficData.vehicleCounts.push(data.vehicleCount !== 'Override' ? data.vehicleCount : 0);
-            trafficData.greenTimes.push(data.greenTime);
-            trafficData.redTimes.push(data.redTime);
+    // Keep only the last 20 data points
+    if (trafficData.labels.length > 20) {
+        trafficData.labels.shift();
+        trafficData.vehicleCounts.shift();
+        trafficData.greenTimes.shift();
+        trafficData.redTimes.shift();
+    }
 
-            if (trafficData.labels.length > 20) {
-                trafficData.labels.shift();
-                trafficData.vehicleCounts.shift();
-                trafficData.greenTimes.shift();
-                trafficData.redTimes.shift();
-            }
-            trafficChart.update();
-        });
+    // Update the chart in the next animation frame for smoother rendering
+    requestAnimationFrame(() => {
+        trafficChart.update();
+    });
+});
+
 
         socket.on('lightUpdate', (data) => {
-            console.log("Light Update Received:", data);
-            const lightDiv = document.getElementById('trafficLight');
-            const stateSpan = document.getElementById('lightState');
-            stateSpan.innerText = data.state.charAt(0).toUpperCase() + data.state.slice(1);
-            if (data.state === 'green') {
-                lightDiv.style.backgroundColor = 'green';
-            } else if (data.state === 'yellow') {
-                lightDiv.style.backgroundColor = 'yellow';
-            } else if (data.state === 'red') {
-                lightDiv.style.backgroundColor = 'red';
-            }
-        });
+    console.log("Light Update Received:", data);
+    const lightDiv = document.getElementById('trafficLight');
+    const stateSpan = document.getElementById('lightState');
+
+    // Update text and background color based on state
+    stateSpan.innerText = data.state.charAt(0).toUpperCase() + data.state.slice(1);
+    if (data.state === 'green') {
+        lightDiv.style.backgroundColor = 'green';
+    } else if (data.state === 'yellow') {
+        lightDiv.style.backgroundColor = 'yellow';
+    } else if (data.state === 'red') {
+        lightDiv.style.backgroundColor = 'red';
+    } else {
+        // Reset if state is not recognized
+        lightDiv.style.backgroundColor = '';
+    }
+});
+
 
         function applyManualOverride() {
             const manualGreen = document.getElementById('manualGreenTime').value;

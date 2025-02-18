@@ -34,16 +34,13 @@ io.on('connection', (socket) => {
     let maxCycle = 90;
     let redTime = maxCycle - manualGreenTime;
 
-   
     if (!cycleInProgress) {
       cycleInProgress = true;
-     
       io.emit('lightUpdate', { state: 'green', duration: manualGreenTime });
       setTimeout(() => {
         io.emit('lightUpdate', { state: 'yellow', duration: 3 });
         setTimeout(() => {
           io.emit('lightUpdate', { state: 'red', duration: redTime });
-          
           cycleInProgress = false;
         }, 3000);
       }, manualGreenTime * 1000);
@@ -58,31 +55,27 @@ io.on('connection', (socket) => {
 app.post('/api/detections', (req, res) => {
   try {
     const trackingData = req.body;
-    console.log("✅ Received tracking data:", JSON.stringify(trackingData, null, 2));
+    // Instead of logging the full data, log only relevant summary info.
+    const { vehicleCount, frameImage } = trackingData;
+    console.log("✅ Received tracking data:");
+    console.log(`   Vehicle Count: ${vehicleCount}`);
+    console.log(`   Frame Image Length: ${frameImage ? frameImage.length : 0}`);
 
-    let { vehicleCount, frameImage } = trackingData;
-    
     let baseTime = 20;
     let multiplier = 3;
     let maxCycle = 90;
     let greenTime = Math.min(maxCycle, baseTime + vehicleCount * multiplier);
     let redTime = maxCycle - greenTime;
 
-    
     io.emit('trafficUpdate', { greenTime, redTime, vehicleCount, frameImage });
 
-    
     if (!cycleInProgress) {
       cycleInProgress = true;
-     
       io.emit('lightUpdate', { state: 'green', duration: greenTime });
-      
       setTimeout(() => {
         io.emit('lightUpdate', { state: 'yellow', duration: 3 });
-        
         setTimeout(() => {
           io.emit('lightUpdate', { state: 'red', duration: redTime });
-         
           cycleInProgress = false;
         }, 3000);
       }, greenTime * 1000);

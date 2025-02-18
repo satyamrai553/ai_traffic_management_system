@@ -6,27 +6,26 @@ from object_detection import ObjectDetection
 import math
 
 od = ObjectDetection(use_gpu=True)
-
 vehicle_classes = ['car', 'truck', 'bus', 'motorbike']
-
-cap = cv2.VideoCapture("traffic.mp4")
+cap = cv2.VideoCapture("traffic2.mp4")
 
 count = 0
 center_points_prev_frame = []
 tracking_objects = {}
 track_id = 0
-
 data = {}
 
 while True:
     ret, frame = cap.read()
-    count += 1
-    if not ret:
+    if not ret or frame is None:
+        print("⚠️ Warning: No frame captured, skipping...")
         break
 
+    count += 1
     center_points_cur_frame = []
 
     (class_ids, scores, boxes) = od.detect(frame)
+    print(f"🎯 Detected {len(boxes)} objects in frame {count}")
 
     filtered_boxes = []
     for i, box in enumerate(boxes):
@@ -36,16 +35,14 @@ while True:
 
     for box in filtered_boxes:
         (x, y, w, h) = box
-        cx = int(x + w / 2)
-        cy = int(y + h / 2)
+        cx, cy = int(x + w / 2), int(y + h / 2)
         center_points_cur_frame.append((cx, cy))
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     if count <= 2:
         for pt in center_points_cur_frame:
             for pt2 in center_points_prev_frame:
-                distance = math.hypot(pt2[0] - pt[0], pt2[1] - pt[1])
-                if distance < 20:
+                if math.hypot(pt2[0] - pt[0], pt2[1] - pt[1]) < 20:
                     tracking_objects[track_id] = pt
                     track_id += 1
     else:
@@ -55,8 +52,7 @@ while True:
         for object_id, pt2 in tracking_objects_copy.items():
             object_exists = False
             for pt in center_points_cur_frame_copy:
-                distance = math.hypot(pt2[0] - pt[0], pt2[1] - pt[1])
-                if distance < 20:
+                if math.hypot(pt2[0] - pt[0], pt2[1] - pt[1]) < 20:
                     tracking_objects[object_id] = pt
                     object_exists = True
                     if pt in center_points_cur_frame:
@@ -75,23 +71,24 @@ while True:
 
     print(f"Frame {count} - Tracking Objects: {tracking_objects}")
 
-    cv2.imshow("Frame", frame)
-    
     retval, buffer = cv2.imencode('.jpg', frame)
+    if not retval:
+        print("❌ Error encoding frame to JPG")
+        continue
+
     jpg_as_text = base64.b64encode(buffer).decode('utf-8')
     data['frameImage'] = jpg_as_text
     data['vehicleCount'] = len(tracking_objects)
 
     try:
         response = requests.post("http://localhost:3000/api/detections", json=data)
-        print("Server response:", response.text)
-    except Exception as e:
-        print("Error sending data:", e)
+        print("✅ Server response:", response.text)
+    except requests.exceptions.RequestException as e:
+        print("❌ Error sending data:", e)
 
     center_points_prev_frame = center_points_cur_frame.copy()
 
-    key = cv2.waitKey(1)
-    if key == 27:
+    if cv2.waitKey(1) == 27:
         break
 
 cap.release()
